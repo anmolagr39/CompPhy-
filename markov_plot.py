@@ -3,57 +3,52 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 file_path = 'random_stock.xlsx'
-data = pd.read_excel(file_path)
+stock_data = pd.read_excel(file_path)
 
-def classify_state(change):
-    if change > 1:
+def classify_market_state(change_percentage):
+    if change_percentage > 1:
         return 'Bullish'
-    elif change < -1:
+    elif change_percentage < -1:
         return 'Bearish'
     else:
         return 'Stagnant'
 
-data['State'] = data['Change(%)'].apply(classify_state)
-
-transition_counts = {
+stock_data['Market State'] = stock_data['Change(%)'].apply(classify_market_state)
+transition_probabilities = {
     'Bullish': {'Bullish': 0.53, 'Bearish': 0.29, 'Stagnant': 0.18},
     'Bearish': {'Bullish': 0.31, 'Bearish': 0.54, 'Stagnant': 0.15},
     'Stagnant': {'Bullish': 0.12, 'Bearish': 0.75, 'Stagnant': 0.13}
 }
 
-weeks = len(data)
-probabilities = {'Bullish': [], 'Bearish': [], 'Stagnant': []}
+initial_state_probs = {'Bullish': 1.0, 'Bearish': 0.0, 'Stagnant': 0.0}
+current_state_probs = initial_state_probs.copy()
+probabilities_over_time = {'Bullish': [], 'Bearish': [], 'Stagnant': []}
 
-# setting Bullish to 1 and others to 0 at Week 0
-initial_probs = {'Bullish': 1.0, 'Bearish': 0.0, 'Stagnant': 0.0}
-current_probs = initial_probs.copy()
+for week in range(len(stock_data)):
+    probabilities_over_time['Bullish'].append(current_state_probs['Bullish'])
+    probabilities_over_time['Bearish'].append(current_state_probs['Bearish'])
+    probabilities_over_time['Stagnant'].append(current_state_probs['Stagnant'])
 
-for week in range(weeks):
-    probabilities['Bullish'].append(current_probs['Bullish'])
-    probabilities['Bearish'].append(current_probs['Bearish'])
-    probabilities['Stagnant'].append(current_probs['Stagnant'])
-
-    new_probs = {
-        state: sum(current_probs[prev_state] * transition_counts[prev_state][state]
-                   for prev_state in transition_counts)
-        for state in transition_counts
+    next_week_probs = {
+        state: sum(current_state_probs[prev_state] * transition_probabilities[prev_state][state]
+                   for prev_state in transition_probabilities)
+        for state in transition_probabilities
     }
-    current_probs = new_probs
+    current_state_probs = next_week_probs
 
-# Plotting the results
 plt.figure(figsize=(8, 6))
-plt.plot(range(weeks), probabilities['Bullish'], label='Bullish', color='blue')
-plt.plot(range(weeks), probabilities['Bearish'], label='Bearish', color='red')
-plt.plot(range(weeks), probabilities['Stagnant'], label='Stagnant', color='black')
+plt.plot(range(len(stock_data)), probabilities_over_time['Bullish'], label='Bullish', color='blue')
+plt.plot(range(len(stock_data)), probabilities_over_time['Bearish'], label='Bearish', color='red')
+plt.plot(range(len(stock_data)), probabilities_over_time['Stagnant'], label='Stagnant', color='black')
 
-# Burn-in line at Week 15
+# Add a vertical line at the "burn-in" week
 burn_in_week = 15
-plt.axvline(x=burn_in_week, color='green', linestyle='--', label='Burn In')
+plt.axvline(x=burn_in_week, color='green', linestyle='--', label='Burn-In Period')
 
-plt.xlim(0, weeks - 1)
+plt.xlim(0, len(stock_data) - 1)
 plt.ylim(0, 1)
 plt.xlabel("Week")
-plt.ylabel("p(Market State)")
+plt.ylabel("Probability of Market State")
 plt.legend()
 plt.tight_layout()
 plt.show()
